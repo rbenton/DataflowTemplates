@@ -46,7 +46,7 @@ mvn clean package \
 -Dbase-container-image.version=${BASE_CONTAINER_IMAGE_VERSION} \
 -Dapp-root=${APP_ROOT} \
 -Dcommand-spec=${DATAFLOW_JAVA_COMMAND_SPEC} \
--am -pl pubsub-cdc-to-bigquery
+-am -pl :pubsub-cdc-to-bigquery
 ```
 
 #### Creating Image Spec

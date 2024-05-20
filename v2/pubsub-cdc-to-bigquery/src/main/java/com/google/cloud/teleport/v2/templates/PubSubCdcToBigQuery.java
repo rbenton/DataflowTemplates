@@ -33,13 +33,15 @@ import com.google.cloud.teleport.v2.transforms.BigQueryConverters;
 import com.google.cloud.teleport.v2.transforms.BigQueryConverters.BigQueryTableConfigManager;
 import com.google.cloud.teleport.v2.transforms.BigQueryDynamicConverters;
 import com.google.cloud.teleport.v2.transforms.ErrorConverters;
-import com.google.cloud.teleport.v2.transforms.PubSubToFailSafeElement;
-import com.google.cloud.teleport.v2.transforms.UDFTextTransformer.InputUDFOptions;
-import com.google.cloud.teleport.v2.transforms.UDFTextTransformer.InputUDFToTableRow;
+import com.google.cloud.teleport.v2.transforms.PubSubEventToFailSafeElement;
+import com.google.cloud.teleport.v2.transforms.UDFPubSubEventTextTransformer.InputUDFOptions;
+import com.google.cloud.teleport.v2.transforms.UDFPubSubEventTextTransformer.InputUDFToTableRow;
 import com.google.cloud.teleport.v2.utils.BigQueryIOUtils;
 import com.google.cloud.teleport.v2.utils.DurationUtils;
 import com.google.cloud.teleport.v2.utils.ResourceUtils;
 import com.google.cloud.teleport.v2.values.FailsafeElement;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.gson.Gson;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CoderRegistry;
@@ -108,6 +110,13 @@ import org.slf4j.LoggerFactory;
     hidden = true,
     streaming = true)
 public class PubSubCdcToBigQuery {
+
+  /** GSON to process a {@link PubsubMessage}. */
+  private static final Gson GSON = new Gson();
+
+  @VisibleForTesting protected static final String PUBSUB_MESSAGE_ATTRIBUTE_FIELD = "attributes";
+  @VisibleForTesting protected static final String PUBSUB_MESSAGE_DATA_FIELD = "data";
+  private static final String PUBSUB_MESSAGE_ID_FIELD = "messageId";
 
   /** The log to output status messages to. */
   private static final Logger LOG = LoggerFactory.getLogger(PubSubCdcToBigQuery.class);
@@ -323,14 +332,14 @@ public class PubSubCdcToBigQuery {
     PCollection<PubsubMessage> messages =
         pipeline.apply(
             "ReadPubSubSubscription",
-            PubsubIO.readMessagesWithAttributes().fromSubscription(options.getInputSubscription()));
+            PubsubIO.readMessagesWithAttributesAndMessageId().fromSubscription(options.getInputSubscription()));
 
     PCollection<FailsafeElement<String, String>> jsonRecords;
 
     if (options.getDeadLetterQueueDirectory() != null) {
 
       PCollection<FailsafeElement<String, String>> failsafeMessages =
-          messages.apply("ConvertPubSubToFailsafe", ParDo.of(new PubSubToFailSafeElement()));
+          messages.apply("ConvertPubSubEventToFailSafe", ParDo.of(new PubSubEventToFailSafeElement()));
 
       PCollection<FailsafeElement<String, String>> dlqJsonRecords =
           pipeline
@@ -351,7 +360,7 @@ public class PubSubCdcToBigQuery {
           PCollectionList.of(failsafeMessages).and(dlqJsonRecords).apply(Flatten.pCollections());
     } else {
       jsonRecords =
-          messages.apply("ConvertPubSubToFailsafe", ParDo.of(new PubSubToFailSafeElement()));
+          messages.apply("ConvertPubSubEventToFailSafe", ParDo.of(new PubSubEventToFailSafeElement()));
     }
 
     PCollectionTuple convertedTableRows =

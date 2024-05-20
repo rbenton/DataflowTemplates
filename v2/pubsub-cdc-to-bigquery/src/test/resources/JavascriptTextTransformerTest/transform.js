@@ -21,7 +21,17 @@
  */
 function transform(inJson) {
   var obj = JSON.parse(inJson);
-  obj.someProp = "someValue";
+  // Example data transformations:
+  // Add a field: obj.newField = 1;
+  // Modify a field: obj.existingField = '';
+  // Filter a record: return null;
+  // TODO: create one function per topic
+  var topic = "projects/project-id/topics/topic-id";
+  obj.data.message_id = topic + " " + obj.messageId;
+  obj.data.published_at = obj.publishTime;
+  obj.data.some_prop = "someValue";
+  obj.data.type = obj.attributes ? obj.attributes.type : null;
+  obj.data.missing = obj.attributes ? obj.attributes.missing : null;
   return JSON.stringify(obj);
 }
 

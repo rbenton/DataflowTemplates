@@ -29,6 +29,7 @@ import com.google.cloud.teleport.v2.transforms.JavascriptTextTransformer.Javascr
 import com.google.cloud.teleport.v2.utils.SerializableSchemaSupplier;
 import com.google.cloud.teleport.v2.values.FailsafeElement;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -271,6 +272,68 @@ public class BigQueryConverters {
       public abstract Builder<T> setFailureTag(TupleTag<FailsafeElement<T, String>> failureTag);
 
       public abstract FailsafeJsonToTableRow<T> build();
+    }
+  }
+
+  /**
+   * The {@link FailsafePubSubEventJsonToTableRow} transform converts JSON strings to {@link TableRow} objects
+   * by extracting each's `data` property and mapping each of its keys to a column.
+   * The transform accepts a {@link FailsafeElement} object so the original payload of the incoming
+   * record can be maintained across multiple series of transforms.
+   */
+  @AutoValue
+  public abstract static class FailsafePubSubEventJsonToTableRow<T>
+          extends PTransform<PCollection<FailsafeElement<T, String>>, PCollectionTuple> {
+    private static final Gson GSON = new Gson();
+    protected static final String PUBSUB_MESSAGE_DATA_FIELD = "data";
+
+    public static <T> Builder<T> newBuilder() {
+      return new AutoValue_BigQueryConverters_FailsafePubSubEventJsonToTableRow.Builder<>();
+    }
+
+    public abstract TupleTag<TableRow> successTag();
+
+    public abstract TupleTag<FailsafeElement<T, String>> failureTag();
+
+    @Override
+    public PCollectionTuple expand(PCollection<FailsafeElement<T, String>> failsafeElements) {
+      return failsafeElements.apply(
+              "JsonToTableRow",
+              ParDo.of(
+                              new DoFn<FailsafeElement<T, String>, TableRow>() {
+                                @ProcessElement
+                                public void processElement(ProcessContext context) {
+                                  FailsafeElement<T, String> element = context.element();
+                                  String eventJson = element.getPayload();
+                                  JsonObject event = GSON.fromJson(eventJson, JsonObject.class);
+                                  JsonObject data = event.getAsJsonObject(PUBSUB_MESSAGE_DATA_FIELD);
+
+                                  try {
+                                    TableRow row = convertJsonToTableRow(data.toString());
+                                    context.output(row);
+                                  } catch (Exception e) {
+                                    context.output(
+                                            failureTag(),
+                                            FailsafeElement.of(element)
+                                                    .setErrorMessage(e.getMessage())
+                                                    .setStacktrace(Throwables.getStackTraceAsString(e)));
+                                  }
+                                }
+                              })
+                      .withOutputTags(successTag(), TupleTagList.of(failureTag())));
+    }
+
+    /**
+     * Builder for {@link FailsafePubSubEventJsonToTableRow}.
+     */
+    @AutoValue.Builder
+    public abstract static class Builder<T> {
+
+      public abstract Builder<T> setSuccessTag(TupleTag<TableRow> successTag);
+
+      public abstract Builder<T> setFailureTag(TupleTag<FailsafeElement<T, String>> failureTag);
+
+      public abstract FailsafePubSubEventJsonToTableRow<T> build();
     }
   }
 

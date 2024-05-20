@@ -1,0 +1,10 @@
+export LOCATION=<gcp-location>  # e.g., "us-east1"
+export PROJECT=<gcp-project>
+export IMAGE_NAME=pubsub-cdc-to-bigquery
+export BUCKET_NAME=gs://<bucket-name>
+export TARGET_GAR_IMAGE=${LOCATION}-docker.pkg.dev/${PROJECT}/images/${IMAGE_NAME}:latest
+export BASE_CONTAINER_IMAGE=gcr.io/dataflow-templates-base/java11-template-launcher-base
+export BASE_CONTAINER_IMAGE_VERSION=latest
+export APP_ROOT=/template/pubsub-cdc-to-bigquery
+export DATAFLOW_JAVA_COMMAND_SPEC=${APP_ROOT}/resources/pubsub-cdc-to-bigquery-command-spec.json
+export TEMPLATE_IMAGE_SPEC=${BUCKET_NAME}/images/pubsub-cdc-to-bigquery-image-spec.json
