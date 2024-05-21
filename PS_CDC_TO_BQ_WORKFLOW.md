@@ -27,4 +27,15 @@ The following should be done before any other development, packaging or deployme
 ## Deployment
 
 1. Run `./build-ps-cdc-to-bq-image-and-spec.sh` to build and push the template image to the `TARGET_GAR_IMAGE`, and flex template to the `TEMPLATE_IMAGE_SPEC` locations defined in `.envrc`. See https://cloud.google.com/sdk/gcloud/reference/dataflow/flex-template/build and https://cloud.google.com/dataflow/docs/guides/templates/using-flex-templates#build-template for more details.
-2. If the flex template pushed by step 1 doesn't look like that in `./copy-ps-cdc-to-bq-spec.sh` (or doesn't exist), run `./copy-ps-cdc-to-bq-spec.sh` and then verify the file at `TEMPLATE_IMAGE_SPEC` is correct.
+
+## Updating
+
+This is just a fork of [GoogleCloudPlatform/DataflowTemplates](https://github.com/GoogleCloudPlatform/DataflowTemplates), so if and when updates from that project are needed here, they can be pulled into this fork's `main` branch, merged into the `ps-cdc-to-bq` branch, and any breaking changes reconciled.
+
+Of particular note is that, per this project's README,
+
+> Templates are released in a weekly basis (best-effort) as part of the efforts to keep [Google-provided Templates](https://cloud.google.com/dataflow/docs/guides/templates/provided-templates) updated with latest fixes and improvements.
+
+and that in order to keep the [pubsub-cdc-to-biqquery-metadata.json](v2%2Fpubsub-cdc-to-bigquery%2Fsrc%2Fmain%2Fresources%2Fpubsub-cdc-to-biqquery-metadata.json) file up-to-date here, per https://cloud.google.com/dataflow/docs/guides/templates/configuring-flex-templates#metadata,
+
+> You can download metadata files for the Google-provided templates from the Dataflow [template directory](https://console.cloud.google.com/storage/browser/dataflow-templates/latest).

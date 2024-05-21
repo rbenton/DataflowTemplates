@@ -1,0 +1,273 @@
+{
+  "name": "Pub/Sub CDC to Bigquery",
+  "description": "Streaming pipeline. Ingests JSON-encoded messages from a Pub/Sub topic, transforms them using a JavaScript user-defined function (UDF), and writes them to a pre-existing BigQuery table as BigQuery elements.",
+  "parameters": [
+    {
+      "name": "inputSubscription",
+      "label": "Pub/Sub input subscription",
+      "helpText": "Pub/Sub subscription to read the input from, in the format of \u0027projects/your-project-id/subscriptions/your-subscription-name\u0027 (Example: projects/your-project-id/subscriptions/your-subscription-name)",
+      "regexes": [
+        "^projects\\/[^\\n\\r\\/]+\\/subscriptions\\/[^\\n\\r\\/]+$|^$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "PUBSUB_SUBSCRIPTION"
+    },
+    {
+      "name": "autoMapTables",
+      "label": "Auto Map Tables",
+      "helpText": "Determines if new columns and tables should be automatically created in BigQuery. Defaults to: true.",
+      "isOptional": true,
+      "regexes": [
+        "^(true|false)$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "BOOLEAN",
+      "defaultValue": "true"
+    },
+    {
+      "name": "schemaFilePath",
+      "label": "Cloud Storage file with BigQuery schema fields to be used in DDL",
+      "helpText": "This is the file location that contains the table definition to be used when creating the table in BigQuery. If left blank the table will get created with generic string typing.",
+      "isOptional": true,
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT"
+    },
+    {
+      "name": "outputDatasetTemplate",
+      "label": "BigQuery Dataset Name or Template: dataset_name or {column_name}",
+      "helpText": "The name for the dataset to contain the replica table. Defaults to: {_metadata_dataset}.",
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT",
+      "defaultValue": "{_metadata_dataset}"
+    },
+    {
+      "name": "outputTableNameTemplate",
+      "label": "BigQuery Table Name or Template: table_name or {column_name}",
+      "helpText": "The location of the BigQuery table to write the output to. If a table does not already exist one will be created automatically. Defaults to: _metadata_table.",
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT",
+      "defaultValue": "_metadata_table"
+    },
+    {
+      "name": "outputTableSpec",
+      "label": "BigQuery output table (Deprecated)",
+      "helpText": "BigQuery table location to write the output to. The name should be in the format `\u003cproject\u003e:\u003cdataset\u003e.\u003ctable_name\u003e`. The table\u0027s schema must match input objects.",
+      "isOptional": true,
+      "regexes": [
+        ".+[\\.:].+\\..+"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "BIGQUERY_TABLE"
+    },
+    {
+      "name": "outputDeadletterTable",
+      "label": "The dead-letter table name to output failed messages to BigQuery",
+      "helpText": "BigQuery table for failed messages. Messages failed to reach the output table for different reasons (e.g., mismatched schema, malformed json) are written to this table. If it doesn\u0027t exist, it will be created during pipeline execution. If not specified, \"outputTableSpec_error_records\" is used instead. (Example: your-project-id:your-dataset.your-table-name)",
+      "isOptional": true,
+      "regexes": [
+        ".+[\\.:].+\\..+"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "BIGQUERY_TABLE"
+    },
+    {
+      "name": "deadLetterQueueDirectory",
+      "label": "Dead Letter Queue Directory",
+      "helpText": "The name of the directory on Cloud Storage you want to write dead letters messages to. Defaults to empty.",
+      "isOptional": true,
+      "regexes": [
+        "^gs:\\/\\/[^\\n\\r]+$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "GCS_WRITE_FOLDER",
+      "defaultValue": ""
+    },
+    {
+      "name": "windowDuration",
+      "label": "Window duration",
+      "helpText": "The window duration/size in which DLQ data will be written to Cloud Storage. Allowed formats are: Ns (for seconds, example: 5s), Nm (for minutes, example: 12m), Nh (for hours, example: 2h). (Example: 5m). Defaults to: 5s.",
+      "isOptional": true,
+      "regexes": [
+        "^[1-9][0-9]*[s|m|h]$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "threadCount",
+      "label": "Thread Number",
+      "helpText": "The number of parallel threads you want to split your data into. Defaults to: 100.",
+      "isOptional": true,
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT",
+      "defaultValue": "100"
+    },
+    {
+      "name": "javascriptTextTransformGcsPath",
+      "label": "Cloud Storage path to Javascript UDF source",
+      "helpText": "The Cloud Storage path pattern for the JavaScript code containing your user-defined functions. (Example: gs://your-bucket/your-function.js)",
+      "isOptional": true,
+      "regexes": [
+        "^gs:\\/\\/[^\\n\\r]+$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "GCS_READ_FILE"
+    },
+    {
+      "name": "javascriptTextTransformFunctionName",
+      "label": "UDF Javascript Function Name",
+      "helpText": "The name of the function to call from your JavaScript file. Use only letters, digits, and underscores. (Example: \u0027transform\u0027 or \u0027transform_udf1\u0027)",
+      "isOptional": true,
+      "regexes": [
+        "[a-zA-Z0-9_]+"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT"
+    },
+    {
+      "name": "javascriptTextTransformReloadIntervalMinutes",
+      "label": "JavaScript UDF auto-reload interval (minutes)",
+      "helpText": "Define the interval that workers may check for JavaScript UDF changes to reload the files. Defaults to: 0.",
+      "isOptional": true,
+      "regexes": [
+        "^[0-9]+$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "NUMBER",
+      "defaultValue": "0"
+    },
+    {
+      "name": "pythonTextTransformGcsPath",
+      "label": "Gcs path to python UDF source",
+      "helpText": "The Cloud Storage path pattern for the Python code containing your user-defined functions. (Example: gs://your-bucket/your-transforms/*.py)",
+      "isOptional": true,
+      "regexes": [
+        "^gs:\\/\\/[^\\n\\r]+$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "GCS_READ_FILE"
+    },
+    {
+      "name": "pythonRuntimeVersion",
+      "label": "Python UDF Runtime Version",
+      "helpText": "The runtime version to use for this Python UDF.",
+      "isOptional": true,
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT"
+    },
+    {
+      "name": "pythonTextTransformFunctionName",
+      "label": "UDF Python Function Name",
+      "helpText": "The name of the function to call from your JavaScript file. Use only letters, digits, and underscores. (Example: transform_udf1)",
+      "isOptional": true,
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "TEXT"
+    },
+    {
+      "name": "runtimeRetries",
+      "label": "Python runtime retry attempts",
+      "helpText": "The number of times a runtime will be retried before failing. Defaults to: 5.",
+      "isOptional": true,
+      "regexes": [
+        "^[0-9]+$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "NUMBER",
+      "defaultValue": "5"
+    },
+    {
+      "name": "useStorageWriteApi",
+      "label": "Use BigQuery Storage Write API",
+      "helpText": "If true, the pipeline uses the Storage Write API when writing the data to BigQuery (see https://cloud.google.com/blog/products/data-analytics/streaming-data-into-bigquery-using-storage-write-api). The default value is false. When using Storage Write API in exactly-once mode, you must set the following parameters: \"Number of streams for BigQuery Storage Write API\" and \"Triggering frequency in seconds for BigQuery Storage Write API\". If you enable Dataflow at-least-once mode or set the useStorageWriteApiAtLeastOnce parameter to true, then you don\u0027t need to set the number of streams or the triggering frequency.",
+      "isOptional": true,
+      "regexes": [
+        "^(true|false)$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "BOOLEAN",
+      "defaultValue": "false"
+    },
+    {
+      "name": "useStorageWriteApiAtLeastOnce",
+      "label": "Use at at-least-once semantics in BigQuery Storage Write API",
+      "helpText": "This parameter takes effect only if \"Use BigQuery Storage Write API\" is enabled. If enabled the at-least-once semantics will be used for Storage Write API, otherwise exactly-once semantics will be used. Defaults to: false.",
+      "isOptional": true,
+      "regexes": [
+        "^(true|false)$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "BOOLEAN",
+      "defaultValue": "false"
+    },
+    {
+      "name": "numStorageWriteApiStreams",
+      "label": "Number of streams for BigQuery Storage Write API",
+      "helpText": "Number of streams defines the parallelism of the BigQueryIO’s Write transform and roughly corresponds to the number of Storage Write API’s streams which will be used by the pipeline. See https://cloud.google.com/blog/products/data-analytics/streaming-data-into-bigquery-using-storage-write-api for the recommended values. Defaults to: 0.",
+      "isOptional": true,
+      "regexes": [
+        "^[0-9]+$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "NUMBER",
+      "defaultValue": "0"
+    },
+    {
+      "name": "storageWriteApiTriggeringFrequencySec",
+      "label": "Triggering frequency in seconds for BigQuery Storage Write API",
+      "helpText": "Triggering frequency will determine how soon the data will be visible for querying in BigQuery. See https://cloud.google.com/blog/products/data-analytics/streaming-data-into-bigquery-using-storage-write-api for the recommended values.",
+      "isOptional": true,
+      "regexes": [
+        "^[0-9]+$"
+      ],
+      "parentTriggerValues": [
+        ""
+      ],
+      "paramType": "NUMBER"
+    }
+  ],
+  "streaming": true,
+  "supportsAtLeastOnce": false,
+  "supportsExactlyOnce": true,
+  "defaultStreamingMode": "UNSPECIFIED"
+}
