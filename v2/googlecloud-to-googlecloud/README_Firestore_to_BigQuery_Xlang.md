@@ -1,13 +1,9 @@
 
-Spanner to BigQuery template
+Firestore (Datastore mode) to BigQuery with Python UDF template
 ---
-The Spanner to BigQuery template is a batch pipeline that reads data from a
-Spanner table, and writes them to a BigQuery table.
+Batch pipeline. Reads Firestore entities and writes them to BigQuery.
 
 
-:memo: This is a Google-provided template! Please
-check [Provided templates documentation](https://cloud.google.com/dataflow/docs/guides/templates/provided/spanner-to-bigquery)
-on how to use it without having to build from sources using [Create job from template](https://console.cloud.google.com/dataflow/createjob?template=Cloud_Spanner_to_BigQuery_Flex).
 
 :bulb: This is a generated documentation based
 on [Metadata Annotations](https://github.com/GoogleCloudPlatform/DataflowTemplates#metadata-annotations)
@@ -17,21 +13,21 @@ on [Metadata Annotations](https://github.com/GoogleCloudPlatform/DataflowTemplat
 
 ### Required parameters
 
-* **spannerInstanceId** : The Spanner instance to read from.
-* **spannerDatabaseId** : The Spanner database to read from.
-* **spannerTableId** : The Spanner table to read from.
-* **sqlQuery** : Query used to read Spanner table.
-* **outputTableSpec** : The BigQuery output table location to write the output to. For example, `<PROJECT_ID>:<DATASET_NAME>.<TABLE_NAME>`.Depending on the `createDisposition` specified, the output table might be created automatically using the user provided Avro schema.
+* **outputTableSpec** : BigQuery table location to write the output to. The name should be in the format `<project>:<dataset>.<table_name>`. The table's schema must match input objects.
+* **bigQueryLoadingTemporaryDirectory** : Temporary directory for BigQuery loading process (Example: gs://your-bucket/your-files/temp_dir).
+* **firestoreReadGqlQuery** : Specifies which Firestore entities to read. Ex: ‘SELECT * FROM MyKind’.
+* **firestoreReadProjectId** : The Google Cloud project ID of the Firestore instance to read from.
 
 ### Optional parameters
 
-* **spannerProjectId** : The project where the Spanner instance to read from is located. The default for this parameter is the project where the Dataflow pipeline is running.
-* **spannerRpcPriority** : The priority of Spanner job. Must be one of the following: [HIGH, MEDIUM, LOW]. Default is HIGH.
 * **bigQuerySchemaPath** : The Cloud Storage path for the BigQuery JSON schema. If `createDisposition` is not set, or set to CREATE_IF_NEEDED, this parameter must be specified. (Example: gs://your-bucket/your-schema.json).
-* **writeDisposition** : The BigQuery WriteDisposition (https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#jobconfigurationload) value. For example, `WRITE_APPEND`, `WRITE_EMPTY`, or `WRITE_TRUNCATE`. Defaults to `WRITE_APPEND`.
-* **createDisposition** : The BigQuery CreateDisposition (https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#jobconfigurationload). For example, `CREATE_IF_NEEDED` and `CREATE_NEVER`. Defaults to `CREATE_IF_NEEDED`.
+* **firestoreReadNamespace** : Namespace of requested Firestore entities. Leave blank to use default namespace.
+* **pythonExternalTextTransformGcsPath** : The Cloud Storage path pattern for the Python code containing your user-defined functions. (Example: gs://your-bucket/your-function.py).
+* **pythonExternalTextTransformFunctionName** : The name of the function to call from your Python file. Use only letters, digits, and underscores. (Example: 'transform' or 'transform_udf1').
 * **useStorageWriteApi** : If `true`, the pipeline uses the BigQuery Storage Write API (https://cloud.google.com/bigquery/docs/write-api). The default value is `false`. For more information, see Using the Storage Write API (https://beam.apache.org/documentation/io/built-in/google-bigquery/#storage-write-api).
 * **useStorageWriteApiAtLeastOnce** : When using the Storage Write API, specifies the write semantics. To use at-least-once semantics (https://beam.apache.org/documentation/io/built-in/google-bigquery/#at-least-once-semantics), set this parameter to `true`. To use exactly-once semantics, set the parameter to `false`. This parameter applies only when `useStorageWriteApi` is `true`. The default value is `false`.
+* **writeDisposition** : The BigQuery WriteDisposition (https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#jobconfigurationload) value. For example, `WRITE_APPEND`, `WRITE_EMPTY`, or `WRITE_TRUNCATE`. Defaults to `WRITE_APPEND`.
+* **createDisposition** : The BigQuery CreateDisposition (https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#jobconfigurationload). For example, `CREATE_IF_NEEDED` and `CREATE_NEVER`. Defaults to `CREATE_IF_NEEDED`.
 
 
 
@@ -48,7 +44,7 @@ on [Metadata Annotations](https://github.com/GoogleCloudPlatform/DataflowTemplat
 
 :star2: Those dependencies are pre-installed if you use Google Cloud Shell!
 
-[![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2FGoogleCloudPlatform%2FDataflowTemplates.git&cloudshell_open_in_editor=v2/googlecloud-to-googlecloud/src/main/java/com/google/cloud/teleport/v2/templates/SpannerToBigQuery.java)
+[![Open in Cloud Shell](http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2FGoogleCloudPlatform%2FDataflowTemplates.git&cloudshell_open_in_editor=v2/googlecloud-to-googlecloud/src/main/java/com/google/cloud/teleport/v2/templates/FirestoreToBigQuery.java)
 
 ### Templates Plugin
 
@@ -78,7 +74,7 @@ mvn clean package -PtemplatesStage  \
 -DprojectId="$PROJECT" \
 -DbucketName="$BUCKET_NAME" \
 -DstagePrefix="templates" \
--DtemplateName="Cloud_Spanner_to_BigQuery_Flex" \
+-DtemplateName="Firestore_to_BigQuery_Xlang" \
 -f v2/googlecloud-to-googlecloud
 ```
 
@@ -87,7 +83,7 @@ The command should build and save the template to Google Cloud, and then print
 the complete location on Cloud Storage:
 
 ```
-Flex Template was staged! gs://<bucket-name>/templates/flex/Cloud_Spanner_to_BigQuery_Flex
+Flex Template was staged! gs://<bucket-name>/templates/flex/Firestore_to_BigQuery_Xlang
 ```
 
 The specific path should be copied as it will be used in the following steps.
@@ -107,40 +103,40 @@ Provided that, the following command line can be used:
 export PROJECT=<my-project>
 export BUCKET_NAME=<bucket-name>
 export REGION=us-central1
-export TEMPLATE_SPEC_GCSPATH="gs://$BUCKET_NAME/templates/flex/Cloud_Spanner_to_BigQuery_Flex"
+export TEMPLATE_SPEC_GCSPATH="gs://$BUCKET_NAME/templates/flex/Firestore_to_BigQuery_Xlang"
 
 ### Required
-export SPANNER_INSTANCE_ID=<spannerInstanceId>
-export SPANNER_DATABASE_ID=<spannerDatabaseId>
-export SPANNER_TABLE_ID=<spannerTableId>
-export SQL_QUERY=<sqlQuery>
 export OUTPUT_TABLE_SPEC=<outputTableSpec>
+export BIG_QUERY_LOADING_TEMPORARY_DIRECTORY=<bigQueryLoadingTemporaryDirectory>
+export FIRESTORE_READ_GQL_QUERY=<firestoreReadGqlQuery>
+export FIRESTORE_READ_PROJECT_ID=<firestoreReadProjectId>
 
 ### Optional
-export SPANNER_PROJECT_ID=""
-export SPANNER_RPC_PRIORITY=<spannerRpcPriority>
 export BIG_QUERY_SCHEMA_PATH=<bigQuerySchemaPath>
-export WRITE_DISPOSITION=WRITE_APPEND
-export CREATE_DISPOSITION=CREATE_IF_NEEDED
+export FIRESTORE_READ_NAMESPACE=<firestoreReadNamespace>
+export PYTHON_EXTERNAL_TEXT_TRANSFORM_GCS_PATH=<pythonExternalTextTransformGcsPath>
+export PYTHON_EXTERNAL_TEXT_TRANSFORM_FUNCTION_NAME=<pythonExternalTextTransformFunctionName>
 export USE_STORAGE_WRITE_API=false
 export USE_STORAGE_WRITE_API_AT_LEAST_ONCE=false
+export WRITE_DISPOSITION=WRITE_APPEND
+export CREATE_DISPOSITION=CREATE_IF_NEEDED
 
-gcloud dataflow flex-template run "cloud-spanner-to-bigquery-flex-job" \
+gcloud dataflow flex-template run "firestore-to-bigquery-xlang-job" \
   --project "$PROJECT" \
   --region "$REGION" \
   --template-file-gcs-location "$TEMPLATE_SPEC_GCSPATH" \
-  --parameters "spannerProjectId=$SPANNER_PROJECT_ID" \
-  --parameters "spannerInstanceId=$SPANNER_INSTANCE_ID" \
-  --parameters "spannerDatabaseId=$SPANNER_DATABASE_ID" \
-  --parameters "spannerTableId=$SPANNER_TABLE_ID" \
-  --parameters "spannerRpcPriority=$SPANNER_RPC_PRIORITY" \
-  --parameters "sqlQuery=$SQL_QUERY" \
-  --parameters "bigQuerySchemaPath=$BIG_QUERY_SCHEMA_PATH" \
   --parameters "outputTableSpec=$OUTPUT_TABLE_SPEC" \
-  --parameters "writeDisposition=$WRITE_DISPOSITION" \
-  --parameters "createDisposition=$CREATE_DISPOSITION" \
+  --parameters "bigQueryLoadingTemporaryDirectory=$BIG_QUERY_LOADING_TEMPORARY_DIRECTORY" \
+  --parameters "bigQuerySchemaPath=$BIG_QUERY_SCHEMA_PATH" \
+  --parameters "firestoreReadGqlQuery=$FIRESTORE_READ_GQL_QUERY" \
+  --parameters "firestoreReadProjectId=$FIRESTORE_READ_PROJECT_ID" \
+  --parameters "firestoreReadNamespace=$FIRESTORE_READ_NAMESPACE" \
+  --parameters "pythonExternalTextTransformGcsPath=$PYTHON_EXTERNAL_TEXT_TRANSFORM_GCS_PATH" \
+  --parameters "pythonExternalTextTransformFunctionName=$PYTHON_EXTERNAL_TEXT_TRANSFORM_FUNCTION_NAME" \
   --parameters "useStorageWriteApi=$USE_STORAGE_WRITE_API" \
-  --parameters "useStorageWriteApiAtLeastOnce=$USE_STORAGE_WRITE_API_AT_LEAST_ONCE"
+  --parameters "useStorageWriteApiAtLeastOnce=$USE_STORAGE_WRITE_API_AT_LEAST_ONCE" \
+  --parameters "writeDisposition=$WRITE_DISPOSITION" \
+  --parameters "createDisposition=$CREATE_DISPOSITION"
 ```
 
 For more information about the command, please check:
@@ -159,29 +155,29 @@ export BUCKET_NAME=<bucket-name>
 export REGION=us-central1
 
 ### Required
-export SPANNER_INSTANCE_ID=<spannerInstanceId>
-export SPANNER_DATABASE_ID=<spannerDatabaseId>
-export SPANNER_TABLE_ID=<spannerTableId>
-export SQL_QUERY=<sqlQuery>
 export OUTPUT_TABLE_SPEC=<outputTableSpec>
+export BIG_QUERY_LOADING_TEMPORARY_DIRECTORY=<bigQueryLoadingTemporaryDirectory>
+export FIRESTORE_READ_GQL_QUERY=<firestoreReadGqlQuery>
+export FIRESTORE_READ_PROJECT_ID=<firestoreReadProjectId>
 
 ### Optional
-export SPANNER_PROJECT_ID=""
-export SPANNER_RPC_PRIORITY=<spannerRpcPriority>
 export BIG_QUERY_SCHEMA_PATH=<bigQuerySchemaPath>
-export WRITE_DISPOSITION=WRITE_APPEND
-export CREATE_DISPOSITION=CREATE_IF_NEEDED
+export FIRESTORE_READ_NAMESPACE=<firestoreReadNamespace>
+export PYTHON_EXTERNAL_TEXT_TRANSFORM_GCS_PATH=<pythonExternalTextTransformGcsPath>
+export PYTHON_EXTERNAL_TEXT_TRANSFORM_FUNCTION_NAME=<pythonExternalTextTransformFunctionName>
 export USE_STORAGE_WRITE_API=false
 export USE_STORAGE_WRITE_API_AT_LEAST_ONCE=false
+export WRITE_DISPOSITION=WRITE_APPEND
+export CREATE_DISPOSITION=CREATE_IF_NEEDED
 
 mvn clean package -PtemplatesRun \
 -DskipTests \
 -DprojectId="$PROJECT" \
 -DbucketName="$BUCKET_NAME" \
 -Dregion="$REGION" \
--DjobName="cloud-spanner-to-bigquery-flex-job" \
--DtemplateName="Cloud_Spanner_to_BigQuery_Flex" \
--Dparameters="spannerProjectId=$SPANNER_PROJECT_ID,spannerInstanceId=$SPANNER_INSTANCE_ID,spannerDatabaseId=$SPANNER_DATABASE_ID,spannerTableId=$SPANNER_TABLE_ID,spannerRpcPriority=$SPANNER_RPC_PRIORITY,sqlQuery=$SQL_QUERY,bigQuerySchemaPath=$BIG_QUERY_SCHEMA_PATH,outputTableSpec=$OUTPUT_TABLE_SPEC,writeDisposition=$WRITE_DISPOSITION,createDisposition=$CREATE_DISPOSITION,useStorageWriteApi=$USE_STORAGE_WRITE_API,useStorageWriteApiAtLeastOnce=$USE_STORAGE_WRITE_API_AT_LEAST_ONCE" \
+-DjobName="firestore-to-bigquery-xlang-job" \
+-DtemplateName="Firestore_to_BigQuery_Xlang" \
+-Dparameters="outputTableSpec=$OUTPUT_TABLE_SPEC,bigQueryLoadingTemporaryDirectory=$BIG_QUERY_LOADING_TEMPORARY_DIRECTORY,bigQuerySchemaPath=$BIG_QUERY_SCHEMA_PATH,firestoreReadGqlQuery=$FIRESTORE_READ_GQL_QUERY,firestoreReadProjectId=$FIRESTORE_READ_PROJECT_ID,firestoreReadNamespace=$FIRESTORE_READ_NAMESPACE,pythonExternalTextTransformGcsPath=$PYTHON_EXTERNAL_TEXT_TRANSFORM_GCS_PATH,pythonExternalTextTransformFunctionName=$PYTHON_EXTERNAL_TEXT_TRANSFORM_FUNCTION_NAME,useStorageWriteApi=$USE_STORAGE_WRITE_API,useStorageWriteApiAtLeastOnce=$USE_STORAGE_WRITE_API_AT_LEAST_ONCE,writeDisposition=$WRITE_DISPOSITION,createDisposition=$CREATE_DISPOSITION" \
 -f v2/googlecloud-to-googlecloud
 ```
 
@@ -199,7 +195,7 @@ To use the autogenerated module, execute the standard
 [terraform workflow](https://developer.hashicorp.com/terraform/intro/core-workflow):
 
 ```shell
-cd v2/googlecloud-to-googlecloud/terraform/Cloud_Spanner_to_BigQuery_Flex
+cd v2/googlecloud-to-googlecloud/terraform/Firestore_to_BigQuery_Xlang
 terraform init
 terraform apply
 ```
@@ -219,25 +215,25 @@ variable "region" {
   default = "us-central1"
 }
 
-resource "google_dataflow_flex_template_job" "cloud_spanner_to_bigquery_flex" {
+resource "google_dataflow_flex_template_job" "firestore_to_bigquery_xlang" {
 
   provider          = google-beta
-  container_spec_gcs_path = "gs://dataflow-templates-${var.region}/latest/flex/Cloud_Spanner_to_BigQuery_Flex"
-  name              = "cloud-spanner-to-bigquery-flex"
+  container_spec_gcs_path = "gs://dataflow-templates-${var.region}/latest/flex/Firestore_to_BigQuery_Xlang"
+  name              = "firestore-to-bigquery-xlang"
   region            = var.region
   parameters        = {
-    spannerInstanceId = "<spannerInstanceId>"
-    spannerDatabaseId = "<spannerDatabaseId>"
-    spannerTableId = "<spannerTableId>"
-    sqlQuery = "<sqlQuery>"
     outputTableSpec = "<outputTableSpec>"
-    # spannerProjectId = ""
-    # spannerRpcPriority = "<spannerRpcPriority>"
+    bigQueryLoadingTemporaryDirectory = "gs://your-bucket/your-files/temp_dir"
+    firestoreReadGqlQuery = "<firestoreReadGqlQuery>"
+    firestoreReadProjectId = "<firestoreReadProjectId>"
     # bigQuerySchemaPath = "gs://your-bucket/your-schema.json"
-    # writeDisposition = "WRITE_APPEND"
-    # createDisposition = "CREATE_IF_NEEDED"
+    # firestoreReadNamespace = "<firestoreReadNamespace>"
+    # pythonExternalTextTransformGcsPath = "gs://your-bucket/your-function.py"
+    # pythonExternalTextTransformFunctionName = "'transform' or 'transform_udf1'"
     # useStorageWriteApi = "false"
     # useStorageWriteApiAtLeastOnce = "false"
+    # writeDisposition = "WRITE_APPEND"
+    # createDisposition = "CREATE_IF_NEEDED"
   }
 }
 ```
