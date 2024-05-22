@@ -26,7 +26,7 @@ import com.google.cloud.teleport.v2.coders.FailsafeElementCoder;
 import com.google.cloud.teleport.v2.common.UncaughtExceptionLogger;
 import com.google.cloud.teleport.v2.options.BigQueryStorageApiStreamingOptions;
 import com.google.cloud.teleport.v2.templates.PubSubToBigQuery.Options;
-import com.google.cloud.teleport.v2.transforms.BigQueryConverters.FailsafeJsonToTableRow;
+import com.google.cloud.teleport.v2.transforms.BigQueryConverters.FailsafePubSubEventJsonToTableRow;
 import com.google.cloud.teleport.v2.transforms.ErrorConverters;
 import com.google.cloud.teleport.v2.transforms.JavascriptTextTransformer.FailsafeJavascriptUdf;
 import com.google.cloud.teleport.v2.transforms.PythonExternalTextTransformer;
@@ -37,7 +37,11 @@ import com.google.cloud.teleport.v2.utils.ResourceUtils;
 import com.google.cloud.teleport.v2.values.FailsafeElement;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineWorkerPoolOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
@@ -66,6 +70,9 @@ import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TupleTagList;
+import org.joda.time.Instant;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -307,13 +314,13 @@ public class PubSubToBigQuery {
       messages =
           pipeline.apply(
               "ReadPubSubSubscription",
-              PubsubIO.readMessagesWithAttributes()
+              PubsubIO.readMessagesWithAttributesAndMessageId()
                   .fromSubscription(options.getInputSubscription()));
     } else {
       messages =
           pipeline.apply(
               "ReadPubSubTopic",
-              PubsubIO.readMessagesWithAttributes().fromTopic(options.getInputTopic()));
+              PubsubIO.readMessagesWithAttributesAndMessageId().fromTopic(options.getInputTopic()));
     }
 
     PCollectionTuple convertedTableRows =
@@ -471,7 +478,7 @@ public class PubSubToBigQuery {
               .get(UDF_OUT)
               .apply(
                   "JsonToTableRow",
-                  FailsafeJsonToTableRow.<PubsubMessage>newBuilder()
+                  FailsafePubSubEventJsonToTableRow.<PubsubMessage>newBuilder()
                       .setSuccessTag(TRANSFORM_OUT)
                       .setFailureTag(TRANSFORM_DEADLETTER_OUT)
                       .build());
@@ -491,11 +498,73 @@ public class PubSubToBigQuery {
    */
   static class PubsubMessageToFailsafeElementFn
       extends DoFn<PubsubMessage, FailsafeElement<PubsubMessage, String>> {
+
+    /** GSON to process a {@link PubsubMessage}. */
+    private static final Gson GSON = new Gson();
+
+    private static final DateTimeFormatter ISO_DATETIME_FORMAT = ISODateTimeFormat.dateTime();
+
+    protected static final String PUBSUB_MESSAGE_ATTRIBUTE_FIELD = "attributes";
+    protected static final String PUBSUB_MESSAGE_DATA_FIELD = "data";
+    private static final String PUBSUB_MESSAGE_ID_FIELD = "messageId";
+    private static final String PUBSUB_PUBLISH_TIME_FIELD = "publishTime";
+
     @ProcessElement
     public void processElement(ProcessContext context) {
       PubsubMessage message = context.element();
-      context.output(
-          FailsafeElement.of(message, new String(message.getPayload(), StandardCharsets.UTF_8)));
+      // see https://lists.apache.org/thread/w5kwshmd6brtbx51kj2603xk8gynx66j
+      Instant timestamp = context.timestamp();
+      context.output(FailsafeElement.of(message, formatPubsubMessage(message, timestamp)));
+    }
+
+    /**
+     * Utility method that formats {@link org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage} according
+     * to the model defined in {@link com.google.pubsub.v1.PubsubMessage}.
+     *
+     * @param pubsubMessage {@link org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage}
+     * @return JSON String that adheres to the model defined in {@link
+     *     com.google.pubsub.v1.PubsubMessage}
+     */
+    protected static String formatPubsubMessage(PubsubMessage pubsubMessage, Instant timestamp) {
+      JsonObject messageJson = new JsonObject();
+
+      String payload = new String(pubsubMessage.getPayload(), StandardCharsets.UTF_8);
+      try {
+        JsonObject data = GSON.fromJson(payload, JsonObject.class);
+        messageJson.add(PUBSUB_MESSAGE_DATA_FIELD, data);
+      } catch (JsonSyntaxException e) {
+        messageJson.addProperty(PUBSUB_MESSAGE_DATA_FIELD, payload);
+      }
+
+      JsonObject attributes = getAttributesJson(pubsubMessage.getAttributeMap());
+      messageJson.add(PUBSUB_MESSAGE_ATTRIBUTE_FIELD, attributes);
+
+      if (pubsubMessage.getTopic() != null) {
+        messageJson.addProperty("topic", pubsubMessage.getTopic());
+      }
+
+      if (pubsubMessage.getMessageId() != null) {
+        messageJson.addProperty(PUBSUB_MESSAGE_ID_FIELD, pubsubMessage.getMessageId());
+      }
+
+      messageJson.addProperty(PUBSUB_PUBLISH_TIME_FIELD, ISO_DATETIME_FORMAT.print(timestamp));
+
+      return messageJson.toString();
+    }
+
+    /**
+     * Constructs a {@link JsonObject} from a {@link Map} of Pub/Sub attributes.
+     *
+     * @param attributesMap {@link Map} of Pub/Sub attributes
+     * @return {@link JsonObject} of Pub/Sub attributes
+     */
+    private static JsonObject getAttributesJson(Map<String, String> attributesMap) {
+      JsonObject attributesJson = new JsonObject();
+      for (String key : attributesMap.keySet()) {
+        attributesJson.addProperty(key, attributesMap.get(key));
+      }
+
+      return attributesJson;
     }
   }
 }
