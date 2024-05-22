@@ -1,6 +1,6 @@
 # Workflow for pubsub-cdc-to-bigquery development
 
-This fork of DataflowTemplates was created only to modify the v2/pubsub-cdc-to-bigquery workflow so that its UDF could have access to PubsubMessage content beyond just its `data` property (e.g., `insertId`, `publishTime` and attributes) when computing the new `data` object to output for mapping into a BigQuery row.
+This branch of this fork of DataflowTemplates was created only to modify the v2/pubsub-cdc-to-bigquery workflow so that its UDF could have access to PubsubMessage content beyond just its `data` property (e.g., `insertId`, `publishTime` and attributes) when computing the new `data` object to output for mapping into a BigQuery row.
 
 This document is just a record of the steps needed to develop, package and deploy this fork's `pubsub-cdc-to-bigquery` template for use in GCP.
 

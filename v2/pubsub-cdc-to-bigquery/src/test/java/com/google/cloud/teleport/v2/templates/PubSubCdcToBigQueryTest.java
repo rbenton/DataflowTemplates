@@ -65,7 +65,8 @@ public class PubSubCdcToBigQueryTest {
     final String messageId = "a57809b5-5f57-4b55-8a69-6b22160679de";
     final String topic = "projects/project-id/topics/topic-id";
     final PubsubMessage message =
-        new PubsubMessage(payload.getBytes(), ImmutableMap.of("id", "123", "type", "custom_event"), messageId);
+        new PubsubMessage(
+            payload.getBytes(), ImmutableMap.of("id", "123", "type", "custom_event"), messageId);
 
     final Instant timestamp =
         new DateTime(2022, 2, 22, 22, 22, 22, 222, DateTimeZone.UTC).toInstant();

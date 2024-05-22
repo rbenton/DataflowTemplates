@@ -32,10 +32,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link UDFPubSubEventTextTransformer} class is a {@link PTransform} which transforms incoming objects
- * into {@link TableRow} objects for insertion into BigQuery while applying an optional UDF to the
- * input. The executions of the UDF and transformation to {@link TableRow} objects is done in a
- * fail-safe way by wrapping the element with it's original payload inside the {@link
+ * The {@link UDFPubSubEventTextTransformer} class is a {@link PTransform} which transforms incoming
+ * objects into {@link TableRow} objects for insertion into BigQuery while applying an optional UDF
+ * to the input. The executions of the UDF and transformation to {@link TableRow} objects is done in
+ * a fail-safe way by wrapping the element with it's original payload inside the {@link
  * FailsafeElement} class. The transform will output a {@link PCollectionTuple} which contains all
  * output and dead-letter {@link PCollection}.
  *

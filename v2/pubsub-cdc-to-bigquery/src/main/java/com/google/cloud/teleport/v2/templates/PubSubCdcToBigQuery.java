@@ -332,14 +332,16 @@ public class PubSubCdcToBigQuery {
     PCollection<PubsubMessage> messages =
         pipeline.apply(
             "ReadPubSubSubscription",
-            PubsubIO.readMessagesWithAttributesAndMessageId().fromSubscription(options.getInputSubscription()));
+            PubsubIO.readMessagesWithAttributesAndMessageId()
+                .fromSubscription(options.getInputSubscription()));
 
     PCollection<FailsafeElement<String, String>> jsonRecords;
 
     if (options.getDeadLetterQueueDirectory() != null) {
 
       PCollection<FailsafeElement<String, String>> failsafeMessages =
-          messages.apply("ConvertPubSubEventToFailSafe", ParDo.of(new PubSubEventToFailSafeElement()));
+          messages.apply(
+              "ConvertPubSubEventToFailSafe", ParDo.of(new PubSubEventToFailSafeElement()));
 
       PCollection<FailsafeElement<String, String>> dlqJsonRecords =
           pipeline
@@ -360,7 +362,8 @@ public class PubSubCdcToBigQuery {
           PCollectionList.of(failsafeMessages).and(dlqJsonRecords).apply(Flatten.pCollections());
     } else {
       jsonRecords =
-          messages.apply("ConvertPubSubEventToFailSafe", ParDo.of(new PubSubEventToFailSafeElement()));
+          messages.apply(
+              "ConvertPubSubEventToFailSafe", ParDo.of(new PubSubEventToFailSafeElement()));
     }
 
     PCollectionTuple convertedTableRows =
